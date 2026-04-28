@@ -1,0 +1,40 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: grantflow-postgres
+    environment:
+      POSTGRES_DB: grantflow
+      POSTGRES_USER: grantflow
+      POSTGRES_PASSWORD: grantflow
+    ports:
+      - "5433:5432"
+    volumes:
+      - grantflow_pgdata:/var/lib/postgresql/data
+
+  backend:
+    build:
+      context: ./backend
+    container_name: grantflow-backend
+    depends_on:
+      - postgres
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/grantflow
+      SPRING_DATASOURCE_USERNAME: grantflow
+      SPRING_DATASOURCE_PASSWORD: grantflow
+      JWT_SECRET: change-this-secret-key-to-something-longer-in-production
+      AWS_REGION: us-east-1
+      AWS_S3_BUCKET: grantflow-documents-demo
+    ports:
+      - "8080:8080"
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: grantflow-frontend
+    depends_on:
+      - backend
+    ports:
+      - "5173:5173"
+
+volumes:
+  grantflow_pgdata:
