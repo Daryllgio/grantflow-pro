@@ -141,7 +141,7 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
     <div className="auth-page">
       <div className="auth-card improved-auth centered-auth">
         <div className="badge">GrantFlow Pro</div>
-        <h1>Grant and scholarship management system</h1>
+        <h1>Grant and scholarship<br />management system</h1>
         <p>
           A secure platform for managing funding programs, applications, documents,
           reviews, decisions, and applicant updates.
@@ -214,10 +214,24 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
   }
 
   const statusData = useMemo(() => {
-    return Object.entries(stats)
-      .filter(([key]) => ["submitted", "under_review", "approved", "rejected", "waitlisted"].includes(key))
-      .map(([name, value]) => ({ name, value }));
-  }, [stats]);
+    const source = applications.reduce((acc: any, app) => {
+      const key = app.status.toLowerCase();
+      acc[key] = (acc[key] || 0) + 1;
+      return acc;
+    }, {});
+
+    return [
+      { name: "Submitted", key: "submitted" },
+      { name: "Under Review", key: "under_review" },
+      { name: "Approved", key: "approved" },
+      { name: "Rejected", key: "rejected" },
+      { name: "Waitlisted", key: "waitlisted" }
+    ]
+      .map(item => ({ name: item.name, value: source[item.key] || 0 }))
+      .filter(item => item.value > 0);
+  }, [applications]);
+
+  const chartColors = ["#2563eb", "#f59e0b", "#16a34a", "#dc2626", "#7c3aed"];
 
   return (
     <div className="app-shell">
@@ -227,8 +241,8 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
           <button onClick={() => setView("dashboard")}><LayoutDashboard size={18} /> Dashboard</button>
           <button onClick={() => setView("programs")}><Briefcase size={18} /> Programs</button>
           <button onClick={() => setView("applications")}><FileText size={18} /> Applications</button>
-          <button onClick={() => setView("notifications")}><Bell size={18} /> Notifications</button>
-          <button onClick={() => setView("audit")}><ShieldCheck size={18} /> Audit Logs</button>
+          {user.role === "APPLICANT" && <button onClick={() => setView("notifications")}><Bell size={18} /> Notifications</button>}
+          {user.role === "ADMIN" && <button onClick={() => setView("audit")}><ShieldCheck size={18} /> Audit Logs</button>}
         </nav>
         <button className="logout" onClick={onLogout}><LogOut size={18} /> Logout</button>
       </aside>
@@ -237,7 +251,6 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
         <header>
           <div>
             <h2>{viewTitle(view)}</h2>
-            <p>{user.fullName} · {user.role}</p>
           </div>
           <span className="role-pill">{user.role}</span>
         </header>
@@ -245,10 +258,10 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
         {view === "dashboard" && (
           <>
             <div className="cards">
-              <Stat title="Programs" value={stats.programs ?? programs.length} />
-              <Stat title="Applications" value={stats.applications ?? applications.length} />
-              <Stat title="Reviews" value={stats.reviews ?? 0} />
-              <Stat title="Approved" value={stats.approved ?? 0} />
+              <Stat title="Programs" value={programs.length} />
+              <Stat title="Applications" value={applications.length} />
+              <Stat title="Under Review" value={applications.filter(a => a.status === "UNDER_REVIEW").length} />
+              <Stat title="Approved" value={applications.filter(a => a.status === "APPROVED").length} />
             </div>
 
             <section className="grid">
@@ -259,7 +272,11 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                     <XAxis dataKey="name" />
                     <YAxis />
                     <Tooltip />
-                    <Bar dataKey="value" />
+                    <Bar dataKey="value">
+                      {statusData.map((_, index) => (
+                        <Cell key={`bar-cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
@@ -269,7 +286,7 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
                 <ResponsiveContainer width="100%" height={260}>
                   <PieChart>
                     <Pie data={statusData} dataKey="value" nameKey="name" outerRadius={90}>
-                      {statusData.map((_, index) => <Cell key={index} />)}
+                      {statusData.map((_, index) => <Cell key={index} fill={chartColors[index % chartColors.length]} />)}
                     </Pie>
                     <Tooltip />
                   </PieChart>
@@ -328,8 +345,16 @@ function Programs({ programs, onCreated, user }: { programs: Program[]; onCreate
       {(user.role === "ADMIN" || user.role === "PROGRAM_MANAGER") && (
         <div className="panel form-inline">
           <h3>Create Program</h3>
-          <input value={name} onChange={e => setName(e.target.value)} />
-          <input value={description} onChange={e => setDescription(e.target.value)} />
+          <div className="prompt-block">
+            <label>Program Name</label>
+            <input value={name} onChange={e => setName(e.target.value)} />
+          </div>
+
+          <div className="prompt-block">
+            <label>Program Description</label>
+            <textarea value={description} onChange={e => setDescription(e.target.value)} />
+          </div>
+
           <button onClick={createProgram}>Create Program</button>
         </div>
       )}
@@ -404,12 +429,14 @@ function Applications({ applications, programs, onCreated, user }: {
   const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
   const [selectedDocs, setSelectedDocs] = useState<ApplicationDocument[]>([]);
   const [selectedReviews, setSelectedReviews] = useState<Review[]>([]);
+  const [editingDraftId, setEditingDraftId] = useState<number | null>(null);
 
   useEffect(() => {
     const current = getProgramPrefill(selectedProgram?.name);
     setAnswer1(current.answer1);
     setAnswer2(current.answer2);
     setAnswer3(current.answer3);
+    setMessage("");
   }, [programId]);
 
   async function createApplication(status: "draft" | "submit") {
@@ -418,21 +445,31 @@ function Applications({ applications, programs, onCreated, user }: {
       return;
     }
 
-    const res = await axios.post(`${API}/applications`, {
+    const payload = {
       programId,
       personalStatement: answer1,
       academicBackground: answer2,
       financialNeedStatement: answer3,
       leadershipExperience: "",
       communityImpact: ""
-    }, { headers: authHeaders() });
+    };
+
+    let applicationId = editingDraftId;
+
+    if (editingDraftId) {
+      const updated = await axios.patch(`${API}/applications/${editingDraftId}`, payload, { headers: authHeaders() });
+      applicationId = updated.data.id;
+    } else {
+      const created = await axios.post(`${API}/applications`, payload, { headers: authHeaders() });
+      applicationId = created.data.id;
+    }
 
     for (const file of selectedFiles) {
       const formData = new FormData();
       formData.append("documentType", documentType);
       formData.append("file", file);
 
-      await axios.post(`${API}/applications/${res.data.id}/documents/upload`, formData, {
+      await axios.post(`${API}/applications/${applicationId}/documents/upload`, formData, {
         headers: {
           ...authHeaders(),
           "Content-Type": "multipart/form-data"
@@ -441,14 +478,26 @@ function Applications({ applications, programs, onCreated, user }: {
     }
 
     if (status === "submit") {
-      await axios.post(`${API}/applications/${res.data.id}/submit`, {}, { headers: authHeaders() });
+      await axios.post(`${API}/applications/${applicationId}/submit`, {}, { headers: authHeaders() });
       setMessage("Application submitted successfully.");
     } else {
       setMessage("Application saved as draft.");
     }
 
     setSelectedFiles([]);
+    setEditingDraftId(null);
+    setTimeout(() => setMessage(""), 2500);
     onCreated();
+  }
+
+  function editDraft(app: Application) {
+    setProgramId(app.program.id);
+    setAnswer1(app.personalStatement || "");
+    setAnswer2(app.academicBackground || "");
+    setAnswer3(app.financialNeedStatement || "");
+    setEditingDraftId(app.id);
+    setMessage("Draft loaded. Make changes, then save or submit.");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 
   async function moveStatus(id: number, status: string) {
@@ -531,8 +580,8 @@ function Applications({ applications, programs, onCreated, user }: {
               </div>
 
               <div className="button-row">
-                <button className="secondary-button" onClick={() => createApplication("draft")}><Save size={16} /> Save as Draft</button>
-                <button className="success-button" onClick={() => createApplication("submit")}><CheckCircle2 size={16} /> Submit Application</button>
+                <button className="secondary-button" onClick={() => createApplication("draft")}><Save size={16} /> {editingDraftId ? "Update Draft" : "Save as Draft"}</button>
+                <button className="success-button" onClick={() => createApplication("submit")}><CheckCircle2 size={16} /> {editingDraftId ? "Submit Draft" : "Submit Application"}</button>
               </div>
             </>
           )}
@@ -552,13 +601,19 @@ function Applications({ applications, programs, onCreated, user }: {
             </div>
             <div className="row-actions">
               <span className="status">{app.status}</span>
-              <button className="secondary-button" onClick={() => openApplication(app)}><Eye size={16} /> View</button>
+              {user.role === "APPLICANT" && (
+                <>
+                  <button className="secondary-button" onClick={() => openApplication(app)}><Eye size={16} /> View</button>
+                  {app.status === "DRAFT" && <button className="secondary-button" onClick={() => editDraft(app)}>Edit Draft</button>}
+                </>
+              )}
 
               {(user.role === "ADMIN" || user.role === "PROGRAM_MANAGER") && (
                 <>
-                  <button onClick={() => moveStatus(app.id, "UNDER_REVIEW")}>Review</button>
+                  <button onClick={() => openApplication(app)}>Review</button>
                   <button onClick={() => moveStatus(app.id, "APPROVED")}>Approve</button>
                   <button onClick={() => moveStatus(app.id, "REJECTED")}>Reject</button>
+                  <button onClick={() => moveStatus(app.id, "WAITLISTED")}>Waitlist</button>
                 </>
               )}
             </div>
@@ -591,6 +646,17 @@ function ApplicationPrompt({ title, value, onChange }: { title: string; value: s
       <textarea value={value} onChange={e => onChange(e.target.value)} />
     </div>
   );
+}
+
+function formatDateTime(value: string | null) {
+  if (!value) return "Not submitted yet";
+  return new Date(value).toLocaleString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit"
+  });
 }
 
 function ApplicationDetailModal({
@@ -642,12 +708,12 @@ function ApplicationDetailModal({
           <button className="ghost" onClick={onClose}>Close</button>
         </div>
 
-        <div className="detail-grid">
+        <div className="detail-grid stacked-details">
           <Detail label="Status" value={application.status} />
-          <Detail label="Submitted At" value={application.submittedAt || "Not submitted yet"} />
-          <Detail label="Response 1" value={application.personalStatement} />
-          <Detail label="Response 2" value={application.academicBackground} />
-          <Detail label="Response 3" value={application.financialNeedStatement} />
+          <Detail label="Submitted At" value={formatDateTime(application.submittedAt)} />
+          <Detail label={getProgramPrefill(application.program?.name).prompt1} value={application.personalStatement} />
+          <Detail label={getProgramPrefill(application.program?.name).prompt2} value={application.academicBackground} />
+          <Detail label={getProgramPrefill(application.program?.name).prompt3} value={application.financialNeedStatement} />
         </div>
 
         <h3>Supporting Documents</h3>
@@ -761,18 +827,19 @@ function Notifications() {
 
   useEffect(() => {
     axios.get(`${API}/notifications`, { headers: authHeaders() })
-      .then(res => setItems(res.data));
+      .then(res => setItems(res.data))
+      .catch(() => setItems([]));
   }, []);
 
   return (
     <div className="table-card">
+      {items.length === 0 && <p className="muted">No notifications yet.</p>}
       {items.map(n => (
         <div className="row" key={n.id}>
           <div>
             <strong>{n.title}</strong>
             <p>{n.message}</p>
           </div>
-          <span className="status">{n.read ? "READ" : "NEW"}</span>
         </div>
       ))}
     </div>
@@ -790,7 +857,7 @@ function AuditLogs() {
 
   return (
     <div className="table-card">
-      {items.length === 0 && <p className="muted">Audit logs are only visible to admins.</p>}
+      {items.length === 0 && <p className="muted">No audit activity has been recorded yet.</p>}
       {items.map(log => (
         <div className="row" key={log.id}>
           <div>

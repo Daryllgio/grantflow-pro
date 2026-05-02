@@ -620,3 +620,223 @@ header p {
     grid-template-columns: 1fr;
   }
 }
+
+/* Final UI cleanup */
+.auth-card.centered-auth {
+  max-width: 760px;
+  padding: 34px 38px;
+}
+
+.centered-auth .demo-grid {
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+  gap: 12px;
+}
+
+.centered-auth .demo-card {
+  min-height: 84px;
+  padding: 12px 14px;
+  gap: 2px;
+}
+
+.centered-auth .demo-card strong {
+  font-size: 14px;
+}
+
+.centered-auth .demo-card span {
+  font-size: 14px;
+}
+
+.centered-auth .demo-card small {
+  font-size: 12px;
+}
+
+.centered-auth .demo-instruction {
+  max-width: 620px;
+  margin-left: auto;
+  margin-right: auto;
+  padding: 10px 12px;
+}
+
+header p {
+  display: none;
+}
+
+.stacked-details {
+  grid-template-columns: 1fr;
+}
+
+.stacked-details .detail-card {
+  min-height: auto;
+}
+
+.detail-card span {
+  display: block;
+  line-height: 1.35;
+}
+
+.detail-card p {
+  line-height: 1.55;
+}
+
+.panel textarea {
+  min-height: 130px;
+}
+
+.table-card .row {
+  align-items: center;
+}
+
+.row-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.recharts-wrapper text {
+  font-size: 12px;
+}
+
+/* Tighten login portal and role cards */
+.auth-card.centered-auth {
+  max-width: 680px;
+  padding: 30px 34px;
+}
+
+.centered-auth h1 {
+  font-size: 34px;
+  line-height: 1.1;
+}
+
+.centered-auth > p {
+  max-width: 520px;
+  font-size: 15px;
+}
+
+.centered-auth .demo-instruction {
+  max-width: 520px;
+  padding: 9px 10px;
+  font-size: 14px;
+}
+
+.centered-auth .demo-grid {
+  max-width: 520px;
+  gap: 10px;
+}
+
+.centered-auth .demo-card {
+  min-height: 72px;
+  padding: 10px 12px;
+  gap: 1px;
+}
+
+.centered-auth .form {
+  max-width: 520px;
+}
+
+.centered-auth input {
+  padding: 10px 12px;
+}
+
+.centered-auth button {
+  padding: 10px 12px;
+}
+
+/* Keep application actions in one row */
+.row-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+.row-actions button {
+  flex-shrink: 0;
+  padding: 8px 12px;
+}
+
+.table-card .row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+}
+
+.table-card .row > div:first-child {
+  min-width: 0;
+}
+
+.table-card .row > div:first-child p {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Cleaner stacked application review */
+.stacked-details {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 14px;
+}
+
+.stacked-details .detail-card {
+  width: 100%;
+}
+
+.detail-card p {
+  white-space: pre-wrap;
+  line-height: 1.55;
+}
+
+/* tighter final login layout */
+.auth-card.centered-auth {
+  max-width: 600px;
+  padding: 28px 30px;
+}
+
+.centered-auth h1 {
+  font-size: 32px;
+  line-height: 1.08;
+  margin-top: 14px;
+  margin-bottom: 14px;
+}
+
+.centered-auth > p {
+  max-width: 470px;
+  font-size: 14px;
+  line-height: 1.35;
+}
+
+.centered-auth .demo-instruction,
+.centered-auth .demo-grid,
+.centered-auth .form {
+  max-width: 470px;
+}
+
+.centered-auth .demo-grid {
+  gap: 8px;
+}
+
+.centered-auth .demo-card {
+  min-height: 64px;
+  padding: 8px 10px;
+  line-height: 1.15;
+}
+
+.centered-auth .demo-card strong,
+.centered-auth .demo-card span,
+.centered-auth .demo-card small {
+  line-height: 1.15;
+}
+
+.centered-auth input,
+.centered-auth button {
+  padding: 9px 11px;
+}
+
+.score-form + .button-row {
+  margin-top: 16px;
+}
+
+.modal .button-row {
+  margin-top: 16px;
+}

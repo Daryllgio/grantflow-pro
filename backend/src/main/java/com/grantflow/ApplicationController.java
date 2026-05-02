@@ -57,6 +57,34 @@ public class ApplicationController {
         return applicationRepository.save(app);
     }
 
+    @PatchMapping("/{id}")
+    @PreAuthorize("hasRole('APPLICANT')")
+    public GrantApplication updateDraft(@PathVariable Long id,
+                                        @RequestBody ApplicationDtos.CreateApplicationRequest request,
+                                        HttpServletRequest http) {
+        User user = (User) http.getAttribute("currentUser");
+
+        GrantApplication app = applicationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Application not found"));
+
+        if (!app.getApplicant().getId().equals(user.getId())) {
+            throw new IllegalArgumentException("You cannot edit this application");
+        }
+
+        if (app.getStatus() != ApplicationStatus.DRAFT) {
+            throw new IllegalArgumentException("Only draft applications can be edited");
+        }
+
+        app.setPersonalStatement(request.personalStatement());
+        app.setAcademicBackground(request.academicBackground());
+        app.setFinancialNeedStatement(request.financialNeedStatement());
+        app.setLeadershipExperience(request.leadershipExperience());
+        app.setCommunityImpact(request.communityImpact());
+        app.setUpdatedAt(LocalDateTime.now());
+
+        return applicationRepository.save(app);
+    }
+
     @PostMapping("/{id}/submit")
     @PreAuthorize("hasRole('APPLICANT')")
     public GrantApplication submit(@PathVariable Long id, HttpServletRequest request) {
@@ -99,6 +127,11 @@ public class ApplicationController {
                 .orElseThrow(() -> new IllegalArgumentException("Application not found"));
 
         ApplicationStatus oldStatus = app.getStatus();
+
+        if (oldStatus == request.status()) {
+            return app;
+        }
+
         app.setStatus(request.status());
         app.setUpdatedAt(LocalDateTime.now());
 
@@ -107,14 +140,14 @@ public class ApplicationController {
                 .action("APPLICATION_STATUS_UPDATED")
                 .entityType("APPLICATION")
                 .entityId(app.getId())
-                .details("Changed status from " + oldStatus + " to " + request.status())
+                .details("Changed " + app.getProgram().getName() + " application from " + oldStatus + " to " + request.status())
                 .createdAt(LocalDateTime.now())
                 .build());
 
         notificationRepository.save(Notification.builder()
                 .recipient(app.getApplicant())
-                .title("Application status updated")
-                .message("Your application status changed from " + oldStatus + " to " + request.status())
+                .title(app.getProgram().getName() + " status update")
+                .message(statusMessage(app.getProgram().getName(), request.status()))
                 .read(false)
                 .createdAt(LocalDateTime.now())
                 .build());
@@ -154,4 +187,19 @@ public class ApplicationController {
         }
         return stats;
     }
+    private String statusMessage(String programName, ApplicationStatus status) {
+        return switch (status) {
+            case SUBMITTED -> "Your application for " + programName + " was submitted successfully.";
+            case ELIGIBILITY_SCREENING -> "Your application for " + programName + " is being checked for eligibility.";
+            case UNDER_REVIEW -> "Your application for " + programName + " is now under review.";
+            case INTERVIEW_STAGE -> "Your application for " + programName + " has moved to the interview stage.";
+            case FINAL_DECISION -> "A final decision is being prepared for your " + programName + " application.";
+            case APPROVED -> "Congratulations. Your application for " + programName + " was approved.";
+            case REJECTED -> "Your application for " + programName + " was reviewed and was not selected.";
+            case WAITLISTED -> "Your application for " + programName + " has been placed on the waitlist.";
+            case WITHDRAWN -> "Your application for " + programName + " was withdrawn.";
+            default -> "Your application for " + programName + " was updated.";
+        };
+    }
+
 }
