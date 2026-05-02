@@ -1,7 +1,6 @@
 package com.grantflow;
 
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.context.annotation.Primary;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -10,12 +9,12 @@ import java.nio.file.*;
 import java.util.UUID;
 
 @Service
-@Primary
+@ConditionalOnProperty(prefix = "app.storage", name = "mode", havingValue = "local", matchIfMissing = true)
 public class LocalStorageService implements StorageService {
     private final Path root;
 
-    public LocalStorageService(@Value("${app.upload-dir:uploads}") String uploadDir) {
-        this.root = Paths.get(uploadDir).toAbsolutePath().normalize();
+    public LocalStorageService(StorageProperties properties) {
+        this.root = Paths.get(properties.getLocalUploadDir()).toAbsolutePath().normalize();
     }
 
     @Override

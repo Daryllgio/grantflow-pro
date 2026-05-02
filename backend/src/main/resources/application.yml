@@ -51,5 +51,10 @@ springdoc:
     path: /swagger-ui.html
 
 
+
 app:
-  upload-dir: uploads
+  storage:
+    mode: ${STORAGE_MODE:local}
+    local-upload-dir: ${LOCAL_UPLOAD_DIR:uploads}
+    s3-bucket: ${AWS_S3_BUCKET:}
+    s3-region: ${AWS_REGION:us-east-1}
