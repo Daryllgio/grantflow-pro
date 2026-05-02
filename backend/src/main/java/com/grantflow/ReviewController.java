@@ -94,7 +94,7 @@ public class ReviewController {
     }
 
     @PostMapping("/applications/{id}/reviews")
-    @PreAuthorize("hasRole('REVIEWER')")
+    @PreAuthorize("hasAnyRole('ADMIN','PROGRAM_MANAGER')")
     public Review review(@PathVariable Long id,
                          @RequestBody ApplicationDtos.ReviewRequest request,
                          HttpServletRequest http) {
@@ -122,13 +122,6 @@ public class ReviewController {
                 .feedback(request.feedback())
                 .reviewedAt(LocalDateTime.now())
                 .build();
-
-        assignmentRepository.findByReviewerId(reviewer.getId()).stream()
-                .filter(a -> a.getApplication().getId().equals(id))
-                .forEach(a -> {
-                    a.setCompleted(true);
-                    assignmentRepository.save(a);
-                });
 
         notificationRepository.save(Notification.builder()
                 .recipient(app.getApplicant())

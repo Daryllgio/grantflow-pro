@@ -19,7 +19,10 @@ import {
   ShieldCheck,
   LogOut,
   Briefcase,
-  ClipboardCheck
+  Eye,
+  UploadCloud,
+  CheckCircle2,
+  Save
 } from "lucide-react";
 import "./styles.css";
 
@@ -53,8 +56,38 @@ type Application = {
     email: string;
   };
   personalStatement: string;
+  academicBackground: string;
+  financialNeedStatement: string;
+  leadershipExperience: string;
+  communityImpact: string;
   status: string;
   submittedAt: string | null;
+};
+
+type ApplicationDocument = {
+  id: number;
+  documentType: string;
+  fileName: string;
+  storageKey: string;
+  documentUrl: string;
+  uploadedAt: string;
+};
+
+type Review = {
+  id: number;
+  academicScore: number;
+  leadershipScore: number;
+  financialNeedScore: number;
+  communityImpactScore: number;
+  essayScore: number;
+  totalScore: number;
+  recommendation: string;
+  feedback: string;
+  reviewedAt: string;
+  reviewer: {
+    fullName: string;
+    email: string;
+  };
 };
 
 function authHeaders() {
@@ -84,19 +117,14 @@ function App() {
 }
 
 function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
-  const [mode, setMode] = useState<"login" | "register">("login");
-  const [fullName, setFullName] = useState("Demo User");
   const [email, setEmail] = useState("admin@grantflow.dev");
   const [password, setPassword] = useState("password123");
-  const [role, setRole] = useState<Role>("APPLICANT");
   const [error, setError] = useState("");
 
   async function submit() {
     try {
       setError("");
-      const url = mode === "login" ? `${API}/auth/login` : `${API}/auth/register`;
-      const body = mode === "login" ? { email, password } : { fullName, email, password, role };
-      const res = await axios.post(url, body);
+      const res = await axios.post(`${API}/auth/login`, { email, password });
       localStorage.setItem("grantflow_user", JSON.stringify(res.data));
       onAuth(res.data);
     } catch (e: any) {
@@ -104,45 +132,46 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
     }
   }
 
+  function fillDemo(selectedEmail: string) {
+    setEmail(selectedEmail);
+    setPassword("password123");
+  }
+
   return (
     <div className="auth-page">
-      <div className="auth-card">
+      <div className="auth-card improved-auth centered-auth">
         <div className="badge">GrantFlow Pro</div>
-        <h1>Nonprofit grant operations, built like real enterprise software.</h1>
+        <h1>Grant and scholarship management system</h1>
         <p>
-          Manage programs, applicants, scoring, reviewer workflows, audit logs,
-          notifications, and scholarship decisions.
+          A secure platform for managing funding programs, applications, documents,
+          reviews, decisions, and applicant updates.
         </p>
 
-        <div className="form">
-          {mode === "register" && (
-            <>
-              <input value={fullName} onChange={e => setFullName(e.target.value)} placeholder="Full name" />
-              <select value={role} onChange={e => setRole(e.target.value as Role)}>
-                <option value="APPLICANT">Applicant</option>
-                <option value="REVIEWER">Reviewer</option>
-                <option value="PROGRAM_MANAGER">Program Manager</option>
-                <option value="ADMIN">Admin</option>
-              </select>
-            </>
-          )}
+        <div className="demo-instruction">
+          Select a demo role below to auto-fill the login credentials.
+        </div>
 
-          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email" />
+        <div className="demo-grid">
+          <button className="demo-card" onClick={() => fillDemo("admin@grantflow.dev")}>
+            <strong>Admin Dashboard</strong>
+            <span>admin@grantflow.dev</span>
+            <small>Password: password123</small>
+          </button>
+
+          <button className="demo-card" onClick={() => fillDemo("applicant@grantflow.dev")}>
+            <strong>Applicant Portal</strong>
+            <span>applicant@grantflow.dev</span>
+            <small>Password: password123</small>
+          </button>
+        </div>
+
+        <div className="form">
+          <input value={email} onChange={e => setEmail(e.target.value)} placeholder="Email address" />
           <input value={password} onChange={e => setPassword(e.target.value)} placeholder="Password" type="password" />
 
           {error && <div className="error">{error}</div>}
 
-          <button onClick={submit}>{mode === "login" ? "Login" : "Create account"}</button>
-          <button className="ghost" onClick={() => setMode(mode === "login" ? "register" : "login")}>
-            Switch to {mode === "login" ? "register" : "login"}
-          </button>
-        </div>
-
-        <div className="demo-box">
-          <strong>Demo logins</strong>
-          <span>admin@grantflow.dev / password123</span>
-          <span>reviewer@grantflow.dev / password123</span>
-          <span>applicant@grantflow.dev / password123</span>
+          <button onClick={submit}>Sign in</button>
         </div>
       </div>
     </div>
@@ -198,7 +227,6 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
           <button onClick={() => setView("dashboard")}><LayoutDashboard size={18} /> Dashboard</button>
           <button onClick={() => setView("programs")}><Briefcase size={18} /> Programs</button>
           <button onClick={() => setView("applications")}><FileText size={18} /> Applications</button>
-          <button onClick={() => setView("reviewer")}><ClipboardCheck size={18} /> Reviewer Queue</button>
           <button onClick={() => setView("notifications")}><Bell size={18} /> Notifications</button>
           <button onClick={() => setView("audit")}><ShieldCheck size={18} /> Audit Logs</button>
         </nav>
@@ -253,7 +281,6 @@ function Dashboard({ user, onLogout }: { user: User; onLogout: () => void }) {
 
         {view === "programs" && <Programs programs={programs} onCreated={load} user={user} />}
         {view === "applications" && <Applications applications={applications} programs={programs} onCreated={load} user={user} />}
-        {view === "reviewer" && <ReviewerQueue />}
         {view === "notifications" && <Notifications />}
         {view === "audit" && <AuditLogs />}
       </main>
@@ -266,7 +293,6 @@ function viewTitle(view: string) {
     dashboard: "Operations Dashboard",
     programs: "Funding Programs",
     applications: "Applications",
-    reviewer: "Reviewer Queue",
     notifications: "Notifications",
     audit: "Audit Logs"
   }[view] || "Dashboard";
@@ -323,6 +349,41 @@ function Programs({ programs, onCreated, user }: { programs: Program[]; onCreate
   );
 }
 
+function getProgramPrefill(programName?: string) {
+  const name = (programName || "").toLowerCase();
+
+  if (name.includes("gwags")) {
+    return {
+      prompt1: "Describe your academic goals and why this scholarship matters at this stage of your education.",
+      answer1: "I am pursuing this opportunity because it would directly support my academic progress and reduce the financial pressure that often limits student success. My goal is to continue building a strong academic foundation while using my education to serve my community.",
+      prompt2: "Describe a leadership or service experience that shaped your commitment to impact.",
+      answer2: "One leadership experience that shaped me was organizing and supporting student-led initiatives focused on access, mentorship, and community development. That experience taught me that leadership is not only about holding a title, but about creating structures that help others succeed.",
+      prompt3: "How would receiving this award help you create long-term community impact?",
+      answer3: "Receiving this award would allow me to focus more fully on my studies and service work. In the long term, I hope to use my education to expand opportunities for students facing similar financial and structural barriers."
+    };
+  }
+
+  if (name.includes("leadership") || name.includes("microgrant")) {
+    return {
+      prompt1: "What community problem does your project address?",
+      answer1: "My project addresses a clear gap in access to resources, mentorship, and practical support for young people trying to build sustainable community initiatives.",
+      prompt2: "What actions will you take if selected?",
+      answer2: "If selected, I will use the funding to organize outreach, coordinate volunteers, purchase essential materials, and track measurable outcomes so the project can be improved and repeated.",
+      prompt3: "How will you measure success?",
+      answer3: "I will measure success through participation numbers, direct beneficiary feedback, completion of planned activities, and evidence that the project created a useful and repeatable community benefit."
+    };
+  }
+
+  return {
+    prompt1: "Why are you applying for this funding opportunity?",
+    answer1: "I am applying because this opportunity aligns with my academic, leadership, and community goals. It would provide meaningful support while allowing me to continue building skills that can benefit others.",
+    prompt2: "What experiences make you a strong candidate?",
+    answer2: "My academic background, leadership experience, and commitment to service make me a strong candidate. I have consistently sought opportunities to take responsibility, solve problems, and contribute to my community.",
+    prompt3: "How will this funding support your next step?",
+    answer3: "This funding would reduce financial barriers, help me focus on my goals, and allow me to continue pursuing opportunities that create long-term educational and community impact."
+  };
+}
+
 function Applications({ applications, programs, onCreated, user }: {
   applications: Application[];
   programs: Program[];
@@ -330,21 +391,63 @@ function Applications({ applications, programs, onCreated, user }: {
   user: User;
 }) {
   const [programId, setProgramId] = useState<number | "">("");
-  const [statement, setStatement] = useState("I am applying because this opportunity aligns with my academic, leadership, and community goals.");
+  const selectedProgram = programs.find(p => p.id === programId);
+  const prefill = getProgramPrefill(selectedProgram?.name);
 
-  async function createApplication() {
-    if (!programId) return;
+  const [answer1, setAnswer1] = useState(prefill.answer1);
+  const [answer2, setAnswer2] = useState(prefill.answer2);
+  const [answer3, setAnswer3] = useState(prefill.answer3);
+
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [documentType, setDocumentType] = useState("RESUME");
+  const [message, setMessage] = useState("");
+  const [selectedApplication, setSelectedApplication] = useState<Application | null>(null);
+  const [selectedDocs, setSelectedDocs] = useState<ApplicationDocument[]>([]);
+  const [selectedReviews, setSelectedReviews] = useState<Review[]>([]);
+
+  useEffect(() => {
+    const current = getProgramPrefill(selectedProgram?.name);
+    setAnswer1(current.answer1);
+    setAnswer2(current.answer2);
+    setAnswer3(current.answer3);
+  }, [programId]);
+
+  async function createApplication(status: "draft" | "submit") {
+    if (!programId) {
+      setMessage("Select a program first.");
+      return;
+    }
 
     const res = await axios.post(`${API}/applications`, {
       programId,
-      personalStatement: statement,
-      academicBackground: "Strong academic record and demonstrated interest in community work.",
-      financialNeedStatement: "Funding would reduce financial barriers and support continued education.",
-      leadershipExperience: "Led student and community initiatives.",
-      communityImpact: "Committed to creating measurable impact through service."
+      personalStatement: answer1,
+      academicBackground: answer2,
+      financialNeedStatement: answer3,
+      leadershipExperience: "",
+      communityImpact: ""
     }, { headers: authHeaders() });
 
-    await axios.post(`${API}/applications/${res.data.id}/submit`, {}, { headers: authHeaders() });
+    for (const file of selectedFiles) {
+      const formData = new FormData();
+      formData.append("documentType", documentType);
+      formData.append("file", file);
+
+      await axios.post(`${API}/applications/${res.data.id}/documents/upload`, formData, {
+        headers: {
+          ...authHeaders(),
+          "Content-Type": "multipart/form-data"
+        }
+      });
+    }
+
+    if (status === "submit") {
+      await axios.post(`${API}/applications/${res.data.id}/submit`, {}, { headers: authHeaders() });
+      setMessage("Application submitted successfully.");
+    } else {
+      setMessage("Application saved as draft.");
+    }
+
+    setSelectedFiles([]);
     onCreated();
   }
 
@@ -353,22 +456,95 @@ function Applications({ applications, programs, onCreated, user }: {
     onCreated();
   }
 
+  async function openApplication(app: Application) {
+    setSelectedApplication(app);
+
+    try {
+      const docs = await axios.get(`${API}/applications/${app.id}/documents/list`, { headers: authHeaders() });
+      setSelectedDocs(docs.data);
+    } catch {
+      setSelectedDocs([]);
+    }
+
+    try {
+      const reviews = await axios.get(`${API}/applications/${app.id}/reviews`, { headers: authHeaders() });
+      setSelectedReviews(reviews.data);
+    } catch {
+      setSelectedReviews([]);
+    }
+  }
+
   return (
     <div>
       {user.role === "APPLICANT" && (
         <div className="panel form-inline">
-          <h3>Start Application</h3>
+          <h3>Application Form</h3>
+          <p className="helper">Select a program, complete the responses, attach documents, then save as draft or submit.</p>
+
           <select value={programId} onChange={e => setProgramId(Number(e.target.value))}>
             <option value="">Select program</option>
             {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
-          <textarea value={statement} onChange={e => setStatement(e.target.value)} />
-          <button onClick={createApplication}>Submit Application</button>
+
+          {!selectedProgram && (
+            <div className="empty-application-state">
+              <Briefcase size={28} />
+              <h3>Select a funding program to begin</h3>
+              <p>The application questions and document requirements will appear after a program is selected.</p>
+            </div>
+          )}
+
+          {selectedProgram && (
+            <>
+              <ApplicationPrompt title={prefill.prompt1} value={answer1} onChange={setAnswer1} />
+              <ApplicationPrompt title={prefill.prompt2} value={answer2} onChange={setAnswer2} />
+              <ApplicationPrompt title={prefill.prompt3} value={answer3} onChange={setAnswer3} />
+
+              <div className="upload-workflow">
+                <div className="workflow-banner">
+                  <UploadCloud size={20} />
+                  <span>Supporting documentation</span>
+                </div>
+
+                <select value={documentType} onChange={e => setDocumentType(e.target.value)}>
+                  <option value="RESUME">Resume</option>
+                  <option value="TRANSCRIPT">Transcript</option>
+                  <option value="RECOMMENDATION_LETTER">Recommendation Letter</option>
+                  <option value="FINANCIAL_DOCUMENT">Financial Document</option>
+                  <option value="PORTFOLIO">Portfolio</option>
+                  <option value="OTHER">Other</option>
+                </select>
+
+                <input
+                  type="file"
+                  multiple
+                  onChange={e => setSelectedFiles(Array.from(e.target.files || []))}
+                />
+
+                {selectedFiles.length > 0 && (
+                  <div className="selected-files">
+                    {selectedFiles.map(file => (
+                      <span key={file.name}>{file.name}</span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="button-row">
+                <button className="secondary-button" onClick={() => createApplication("draft")}><Save size={16} /> Save as Draft</button>
+                <button className="success-button" onClick={() => createApplication("submit")}><CheckCircle2 size={16} /> Submit Application</button>
+              </div>
+            </>
+          )}
+
+          {message && <p className="success">{message}</p>}
         </div>
       )}
 
       <div className="table-card">
-        {applications.map(app => (
+        {applications
+          .filter(app => user.role === "APPLICANT" || app.status !== "DRAFT")
+          .map(app => (
           <div className="row" key={app.id}>
             <div>
               <strong>{app.program?.name}</strong>
@@ -376,6 +552,8 @@ function Applications({ applications, programs, onCreated, user }: {
             </div>
             <div className="row-actions">
               <span className="status">{app.status}</span>
+              <button className="secondary-button" onClick={() => openApplication(app)}><Eye size={16} /> View</button>
+
               {(user.role === "ADMIN" || user.role === "PROGRAM_MANAGER") && (
                 <>
                   <button onClick={() => moveStatus(app.id, "UNDER_REVIEW")}>Review</button>
@@ -387,45 +565,193 @@ function Applications({ applications, programs, onCreated, user }: {
           </div>
         ))}
       </div>
+
+      {selectedApplication && (
+        <ApplicationDetailModal
+          application={selectedApplication}
+          documents={selectedDocs}
+          reviews={selectedReviews}
+          user={user}
+          onUpdated={onCreated}
+          onClose={() => {
+            setSelectedApplication(null);
+            setSelectedDocs([]);
+            setSelectedReviews([]);
+          }}
+        />
+      )}
     </div>
   );
 }
 
-function ReviewerQueue() {
-  const [assignments, setAssignments] = useState<any[]>([]);
+function ApplicationPrompt({ title, value, onChange }: { title: string; value: string; onChange: (value: string) => void }) {
+  return (
+    <div className="prompt-block">
+      <label>{title}</label>
+      <textarea value={value} onChange={e => onChange(e.target.value)} />
+    </div>
+  );
+}
 
-  useEffect(() => {
-    axios.get(`${API}/reviewer/assignments`, { headers: authHeaders() })
-      .then(res => setAssignments(res.data))
-      .catch(() => setAssignments([]));
-  }, []);
+function ApplicationDetailModal({
+  application,
+  documents,
+  reviews,
+  user,
+  onUpdated,
+  onClose
+}: {
+  application: Application;
+  documents: ApplicationDocument[];
+  reviews?: Review[];
+  user: User;
+  onUpdated: () => void;
+  onClose: () => void;
+}) {
+  const [academicScore, setAcademicScore] = useState(18);
+  const [leadershipScore, setLeadershipScore] = useState(18);
+  const [financialNeedScore, setFinancialNeedScore] = useState(18);
+  const [communityImpactScore, setCommunityImpactScore] = useState(18);
+  const [essayScore, setEssayScore] = useState(18);
+  const [recommendation, setRecommendation] = useState("APPROVE");
+  const [feedback, setFeedback] = useState("Strong application with clear alignment to the program goals, meaningful leadership experience, and a thoughtful plan for community impact.");
+  const [reviewMessage, setReviewMessage] = useState("");
 
-  async function submitReview(applicationId: number) {
-    await axios.post(`${API}/applications/${applicationId}/reviews`, {
-      academicScore: 18,
-      leadershipScore: 19,
-      financialNeedScore: 17,
-      communityImpactScore: 20,
-      essayScore: 18,
-      recommendation: "APPROVE",
-      feedback: "Strong applicant with clear leadership experience and meaningful community impact."
+  async function submitAdminReview() {
+    await axios.post(`${API}/applications/${application.id}/reviews`, {
+      academicScore,
+      leadershipScore,
+      financialNeedScore,
+      communityImpactScore,
+      essayScore,
+      recommendation,
+      feedback
     }, { headers: authHeaders() });
 
-    window.location.reload();
+    setReviewMessage("Review saved successfully.");
+    onUpdated();
   }
-
   return (
-    <div className="table-card">
-      {assignments.length === 0 && <p className="muted">No reviewer assignments yet.</p>}
-      {assignments.map(a => (
-        <div className="row" key={a.id}>
+    <div className="modal-backdrop">
+      <div className="modal">
+        <div className="modal-header">
           <div>
-            <strong>{a.application?.program?.name}</strong>
-            <p>Applicant: {a.application?.applicant?.fullName}</p>
+            <h2>{application.program?.name}</h2>
+            <p>{application.applicant?.fullName} · {application.applicant?.email}</p>
           </div>
-          <button onClick={() => submitReview(a.application.id)}>Submit Review</button>
+          <button className="ghost" onClick={onClose}>Close</button>
         </div>
-      ))}
+
+        <div className="detail-grid">
+          <Detail label="Status" value={application.status} />
+          <Detail label="Submitted At" value={application.submittedAt || "Not submitted yet"} />
+          <Detail label="Response 1" value={application.personalStatement} />
+          <Detail label="Response 2" value={application.academicBackground} />
+          <Detail label="Response 3" value={application.financialNeedStatement} />
+        </div>
+
+        <h3>Supporting Documents</h3>
+        <div className="documents-list">
+          {documents.length === 0 && <p className="muted">No documents uploaded.</p>}
+          {documents.map(doc => (
+            <div className="document-item" key={doc.id}>
+              <div>
+                <strong>{doc.documentType}</strong>
+                <p>{doc.fileName}</p>
+              </div>
+              <a
+                className="secondary-button document-link"
+                href={`http://localhost:8080${doc.documentUrl}`}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open Document
+              </a>
+            </div>
+          ))}
+        </div>
+
+        <h3>Reviewer Feedback</h3>
+        <div className="reviews-list">
+          {(!reviews || reviews.length === 0) && <p className="muted">No admin review submitted yet.</p>}
+          {reviews?.map(review => (
+            <div className="review-card" key={review.id}>
+              <div className="review-card-header">
+                <strong>{review.reviewer?.fullName || "Admin"}</strong>
+                <span className="status">{review.recommendation}</span>
+              </div>
+              <div className="score-grid">
+                <span>Academic: {review.academicScore}</span>
+                <span>Leadership: {review.leadershipScore}</span>
+                <span>Need: {review.financialNeedScore}</span>
+                <span>Impact: {review.communityImpactScore}</span>
+                <span>Essay: {review.essayScore}</span>
+                <strong>Total: {review.totalScore}</strong>
+              </div>
+              <p>{review.feedback}</p>
+            </div>
+          ))}
+        </div>
+
+        {(user.role === "ADMIN" || user.role === "PROGRAM_MANAGER") && (
+          <>
+            <h3>Admin Review</h3>
+            <div className="score-form">
+              <ScoreInput label="Academic Score" value={academicScore} onChange={setAcademicScore} />
+              <ScoreInput label="Leadership Score" value={leadershipScore} onChange={setLeadershipScore} />
+              <ScoreInput label="Financial Need Score" value={financialNeedScore} onChange={setFinancialNeedScore} />
+              <ScoreInput label="Community Impact Score" value={communityImpactScore} onChange={setCommunityImpactScore} />
+              <ScoreInput label="Essay Score" value={essayScore} onChange={setEssayScore} />
+
+              <div className="prompt-block">
+                <label>Recommendation</label>
+                <select value={recommendation} onChange={e => setRecommendation(e.target.value)}>
+                  <option value="STRONG_APPROVE">Strong Approve</option>
+                  <option value="APPROVE">Approve</option>
+                  <option value="HOLD">Hold</option>
+                  <option value="REJECT">Reject</option>
+                  <option value="STRONG_REJECT">Strong Reject</option>
+                </select>
+              </div>
+
+              <div className="prompt-block wide">
+                <label>Internal Feedback</label>
+                <textarea value={feedback} onChange={e => setFeedback(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="button-row">
+              <button className="success-button" onClick={submitAdminReview}>Save Admin Review</button>
+            </div>
+
+            {reviewMessage && <p className="success">{reviewMessage}</p>}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Detail({ label, value }: { label: string; value?: string }) {
+  return (
+    <div className="detail-card">
+      <span>{label}</span>
+      <p>{value || "N/A"}</p>
+    </div>
+  );
+}
+
+function ScoreInput({ label, value, onChange }: { label: string; value: number; onChange: (value: number) => void }) {
+  return (
+    <div className="prompt-block">
+      <label>{label}</label>
+      <input
+        type="number"
+        min="0"
+        max="20"
+        value={value}
+        onChange={e => onChange(Number(e.target.value))}
+      />
     </div>
   );
 }
