@@ -14,3 +14,6 @@ frontend/.vite/
 
 .idea/
 .vscode/
+
+backend/uploads/
+uploads/
