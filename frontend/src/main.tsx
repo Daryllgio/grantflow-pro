@@ -120,15 +120,19 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
   const [email, setEmail] = useState("admin@grantflow.dev");
   const [password, setPassword] = useState("password123");
   const [error, setError] = useState("");
+  const [isSigningIn, setIsSigningIn] = useState(false);
 
   async function submit() {
     try {
       setError("");
+      setIsSigningIn(true);
       const res = await axios.post(`${API}/auth/login`, { email, password });
       localStorage.setItem("grantflow_user", JSON.stringify(res.data));
       onAuth(res.data);
     } catch (e: any) {
       setError(e.response?.data?.error || "Authentication failed");
+    } finally {
+      setIsSigningIn(false);
     }
   }
 
@@ -171,7 +175,9 @@ function AuthScreen({ onAuth }: { onAuth: (user: User) => void }) {
 
           {error && <div className="error">{error}</div>}
 
-          <button onClick={submit}>Sign in</button>
+          <button onClick={submit} disabled={isSigningIn}>
+            {isSigningIn ? "Signing in..." : "Sign in"}
+          </button>
         </div>
       </div>
     </div>
