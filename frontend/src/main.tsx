@@ -340,6 +340,16 @@ function Programs({ programs, onCreated, user }: { programs: Program[]; onCreate
     onCreated();
   }
 
+  async function closeProgram(id: number) {
+    await axios.patch(`${API}/programs/${id}/close`, {}, { headers: authHeaders() });
+    onCreated();
+  }
+
+  async function reopenProgram(id: number) {
+    await axios.patch(`${API}/programs/${id}/reopen`, {}, { headers: authHeaders() });
+    onCreated();
+  }
+
   return (
     <div>
       {(user.role === "ADMIN" || user.role === "PROGRAM_MANAGER") && (
@@ -366,7 +376,16 @@ function Programs({ programs, onCreated, user }: { programs: Program[]; onCreate
               <strong>{program.name}</strong>
               <p>{program.description}</p>
             </div>
-            <span className="status">{program.status}</span>
+
+            <div className="row-actions">
+              <span className="status">{program.status}</span>
+
+              {(user.role === "ADMIN" || user.role === "PROGRAM_MANAGER") && (
+                program.status === "OPEN"
+                  ? <button onClick={() => closeProgram(program.id)}>Close Program</button>
+                  : <button className="secondary-button" onClick={() => reopenProgram(program.id)}>Reopen</button>
+              )}
+            </div>
           </div>
         ))}
       </div>
@@ -532,7 +551,7 @@ function Applications({ applications, programs, onCreated, user }: {
 
           <select value={programId} onChange={e => setProgramId(Number(e.target.value))}>
             <option value="">Select program</option>
-            {programs.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {programs.filter(p => p.status === "OPEN").map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
 
           {!selectedProgram && (

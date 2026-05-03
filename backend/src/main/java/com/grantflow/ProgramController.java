@@ -50,4 +50,29 @@ public class ProgramController {
         program.setUpdatedAt(LocalDateTime.now());
         return programRepository.save(program);
     }
+    @PatchMapping("/{id}/close")
+    @PreAuthorize("hasAnyRole('ADMIN','PROGRAM_MANAGER')")
+    public Program closeProgram(@PathVariable Long id) {
+        Program program = programRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Program not found"));
+
+        program.setStatus(ProgramStatus.CLOSED);
+        program.setUpdatedAt(LocalDateTime.now());
+
+        return programRepository.save(program);
+    }
+
+    @PatchMapping("/{id}/reopen")
+    @PreAuthorize("hasAnyRole('ADMIN','PROGRAM_MANAGER')")
+    public Program reopenProgram(@PathVariable Long id) {
+        Program program = programRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Program not found"));
+
+        program.setStatus(ProgramStatus.OPEN);
+        program.setUpdatedAt(LocalDateTime.now());
+
+        return programRepository.save(program);
+    }
+
+
 }
