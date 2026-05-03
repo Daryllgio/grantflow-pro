@@ -26,7 +26,7 @@ import {
 } from "lucide-react";
 import "./styles.css";
 
-const API = "http://localhost:8080/api";
+const API = import.meta.env.VITE_API_BASE_URL || "http://localhost:8080/api";
 
 type Role = "APPLICANT" | "REVIEWER" | "PROGRAM_MANAGER" | "ADMIN";
 
